@@ -1,5 +1,5 @@
 from langchain.chat_models import init_chat_model
-from langchain_core.messages import HumanMessage, AIMessageChunk, AIMessage
+from langchain_core.messages import HumanMessage, AIMessageChunk, AIMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_tavily import TavilySearch
 from langgraph.prebuilt import create_react_agent  # LangGraph 原生 API
@@ -55,8 +55,7 @@ system_prompt = """
 agent = create_react_agent(
     model=model,  # 模型
     tools=[web_search],  # 工具
-    checkpointer=checkpointer,  # LangGraph 记忆系统
-    state_modifier=system_prompt  # 系统提示词
+    checkpointer=checkpointer  # LangGraph 记忆系统
 )
 
 # 流式对话
@@ -66,16 +65,22 @@ async def search_recipes(prompt: str, image: str, thread_id: str):
     try:
         # 判断是否有图片，封装不同格式的消息
         if not image or image.strip() == "":
-            message = HumanMessage(content=prompt)
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=prompt)
+            ]
         else:
-            message = HumanMessage(content=[
-                {"type": "image", "url": image},
-                {"type": "text", "text": prompt}
-            ])
+            messages = [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=[
+                    {"type": "image", "url": image},
+                    {"type": "text", "text": prompt}
+                ])
+            ]
 
         # 流式调用Agent
         for chunk, metadata in agent.stream(
-                {"messages": [message]},
+                {"messages": messages},
                 {"configurable": {"thread_id": thread_id}},
                 stream_mode="messages"
         ):
